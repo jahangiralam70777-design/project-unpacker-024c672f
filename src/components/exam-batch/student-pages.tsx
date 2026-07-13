@@ -936,7 +936,9 @@ export function StudentLeaderboard() {
             </table>
           </div>
         )}
+        </div>
       </SectionCard>
+
 
       <div className="mt-4">
         <button
