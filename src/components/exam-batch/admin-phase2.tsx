@@ -421,9 +421,13 @@ export function AdminExams() {
   const submit = async () => {
     const ws = toIsoOrNull(form.windowStart);
     const we = toIsoOrNull(form.windowEnd);
-    if (!form.title.trim()) return toast.error("Title required");
     if (!form.sessionId) return toast.error("Session required");
     if (!form.subjectId) return toast.error("Subject required");
+    if (!form.chapterId) return toast.error("Chapter required");
+    const chapterList = (chaptersQ.data ?? []) as Array<{ id: string; name: string }>;
+    const chapter = chapterList.find((c) => c.id === form.chapterId);
+    const derivedTitle = (chapter?.name ?? form.title).trim();
+    if (!derivedTitle) return toast.error("Selected chapter has no name");
     if (!ws || !we) return toast.error("Valid window required");
     if (new Date(ws).getTime() >= new Date(we).getTime())
       return toast.error("Window end must be after start");
@@ -431,11 +435,11 @@ export function AdminExams() {
       return toast.error("Attach at least one question before publishing.");
     }
     const payload = {
-      title: form.title.trim(),
+      title: derivedTitle,
       subtitle: form.subtitle.trim() || undefined,
       level: form.level.trim(),
       subjectId: form.subjectId,
-      chapterId: form.chapterId || null,
+      chapterId: form.chapterId,
       durationMinutes: Number(form.durationMinutes),
       totalQuestions: Number(form.totalQuestions),
       windowStart: ws,
@@ -448,6 +452,7 @@ export function AdminExams() {
       isPublished: form.isPublished,
       isHidden: form.isHidden,
     };
+
     try {
       let examId: string;
       if (editing) {
@@ -738,16 +743,6 @@ export function AdminExams() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="sm:col-span-2 block">
               <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Title
-              </span>
-              <input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="mt-1 h-10 w-full rounded-xl border border-input bg-background/60 px-3 text-sm"
-              />
-            </label>
-            <label className="sm:col-span-2 block">
-              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Subtitle
               </span>
               <input
@@ -769,6 +764,8 @@ export function AdminExams() {
                     sessionId: e.target.value,
                     level: s?.level ?? form.level,
                     subjectId: "",
+                    chapterId: "",
+                    title: "",
                   });
                 }}
                 disabled={!!editing}
@@ -791,7 +788,7 @@ export function AdminExams() {
               <select
                 value={form.subjectId}
                 onChange={(e) =>
-                  setForm({ ...form, subjectId: e.target.value, chapterId: "" })
+                  setForm({ ...form, subjectId: e.target.value, chapterId: "", title: "" })
                 }
                 className="mt-1 h-10 w-full rounded-xl border border-input bg-background/60 px-3 text-sm"
               >
@@ -805,24 +802,44 @@ export function AdminExams() {
                 ))}
               </select>
             </label>
-            <label className="block">
+            <label className="sm:col-span-2 block">
               <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Chapter (optional)
+                Chapter
               </span>
               <select
                 value={form.chapterId}
-                onChange={(e) => setForm({ ...form, chapterId: e.target.value })}
+                onChange={(e) => {
+                  const chapters = (chaptersQ.data ?? []) as Array<{ id: string; name: string }>;
+                  const picked = chapters.find((c) => c.id === e.target.value);
+                  setForm({
+                    ...form,
+                    chapterId: e.target.value,
+                    title: picked?.name ?? "",
+                  });
+                }}
                 disabled={!form.subjectId}
                 className="mt-1 h-10 w-full rounded-xl border border-input bg-background/60 px-3 text-sm"
               >
-                <option value="">Any chapter (subject-wide)</option>
+                <option value="">
+                  {!form.subjectId
+                    ? "Select subject first…"
+                    : chaptersQ.isLoading
+                      ? "Loading chapters…"
+                      : "Select chapter…"}
+                </option>
                 {((chaptersQ.data ?? []) as any[]).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}
               </select>
+              {form.title && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Exam title: <span className="font-semibold text-foreground">{form.title}</span>
+                </p>
+              )}
             </label>
+
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Duration (minutes)
