@@ -421,9 +421,13 @@ export function AdminExams() {
   const submit = async () => {
     const ws = toIsoOrNull(form.windowStart);
     const we = toIsoOrNull(form.windowEnd);
-    if (!form.title.trim()) return toast.error("Title required");
     if (!form.sessionId) return toast.error("Session required");
     if (!form.subjectId) return toast.error("Subject required");
+    if (!form.chapterId) return toast.error("Chapter required");
+    const chapterList = (chaptersQ.data ?? []) as Array<{ id: string; name: string }>;
+    const chapter = chapterList.find((c) => c.id === form.chapterId);
+    const derivedTitle = (chapter?.name ?? form.title).trim();
+    if (!derivedTitle) return toast.error("Selected chapter has no name");
     if (!ws || !we) return toast.error("Valid window required");
     if (new Date(ws).getTime() >= new Date(we).getTime())
       return toast.error("Window end must be after start");
@@ -431,11 +435,11 @@ export function AdminExams() {
       return toast.error("Attach at least one question before publishing.");
     }
     const payload = {
-      title: form.title.trim(),
+      title: derivedTitle,
       subtitle: form.subtitle.trim() || undefined,
       level: form.level.trim(),
       subjectId: form.subjectId,
-      chapterId: form.chapterId || null,
+      chapterId: form.chapterId,
       durationMinutes: Number(form.durationMinutes),
       totalQuestions: Number(form.totalQuestions),
       windowStart: ws,
@@ -448,6 +452,7 @@ export function AdminExams() {
       isPublished: form.isPublished,
       isHidden: form.isHidden,
     };
+
     try {
       let examId: string;
       if (editing) {
