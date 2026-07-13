@@ -21,10 +21,12 @@ export const leaderboardAdminInput = z.object({
 export const historyInput = z.object({
   sessionId: uuid.optional(),
   subjectId: uuid.optional(),
+  chapterId: uuid.optional(),
   examId: uuid.optional(),
   offset: z.number().int().min(0).max(100_000).default(0),
   limit: z.number().int().min(1).max(100).default(25),
 });
+
 
 export const progressWindowInput = z.object({
   window: z.enum(["daily", "weekly", "30d"]).default("30d"),

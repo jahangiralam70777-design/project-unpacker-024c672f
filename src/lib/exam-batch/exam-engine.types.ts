@@ -125,6 +125,8 @@ export type ExamPublicMeta = {
   subjectName?: string | null;
   sessionTitle?: string | null;
   chapterId: string | null;
+  chapterName?: string | null;
+
   durationMinutes: number;
   totalQuestions: number;
   windowStart: string;
