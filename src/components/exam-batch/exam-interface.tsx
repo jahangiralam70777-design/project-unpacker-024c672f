@@ -19,12 +19,11 @@ import {
 } from "lucide-react";
 
 import { useServerFn } from "@tanstack/react-start";
-import { useNavigate } from "@tanstack/react-router";
+import { getRouteApi, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
 import { primaryBtnCls, ghostBtnCls } from "./kit";
-import { Route } from "@/routes/_student.exam-batch-take";
 import {
   getExamBatchAttemptResult,
   getExamBatchAttemptState,
@@ -39,6 +38,8 @@ import type { AttemptQuestionView, ResultVisibility } from "@/lib/exam-batch";
 type Phase = "loading" | "exam" | "processing" | "submitted" | "error";
 type QState = "answered" | "unanswered" | "current";
 
+const examBatchTakeRoute = getRouteApi("/_student/exam-batch-take");
+
 
 function formatTime(sec: number): string {
   const s = Math.max(0, Math.floor(sec));
@@ -51,7 +52,7 @@ function formatTime(sec: number): string {
 
 // -------------- Main Exam Interface --------------
 export function ExamInterface() {
-  const search = Route.useSearch();
+  const search = examBatchTakeRoute.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
