@@ -910,7 +910,13 @@ export function StudentLeaderboard() {
           <EmptyState
             icon={Trophy}
             title="Select a subject"
-            description="Pick a subject to see its exams."
+            description="Pick a subject to see its chapters."
+          />
+        ) : !chapterId ? (
+          <EmptyState
+            icon={Trophy}
+            title="Select a chapter"
+            description="Pick a chapter to see its exams."
           />
         ) : !examId || !board ? (
           <EmptyState
@@ -918,6 +924,7 @@ export function StudentLeaderboard() {
             title="Select an exam"
             description="Pick an exam from the dropdown above to view its leaderboard."
           />
+
         ) : !board.exam.isVisibleToStudent ? (
           <EmptyState
             icon={Trophy}
