@@ -179,13 +179,22 @@ export const listExamBatchExamsForSession = createServerFn({ method: "POST" })
     rows = rows.filter((r) => !submittedExamIds.has(r.id));
     if (rows.length === 0) return rows;
 
-    // Enrich with subject name + session title so clients don't need extra lookups.
+    // Enrich with subject name + chapter name + session title so clients don't need extra lookups.
     const subjIds = Array.from(new Set(rows.map((r) => r.subjectId)));
-    const [{ data: subjs }, { data: sess }] = await Promise.all([
+    const chapIds = Array.from(
+      new Set(rows.map((r) => r.chapterId).filter((v): v is string => !!v)),
+    );
+    const [{ data: subjs }, { data: chaps }, { data: sess }] = await Promise.all([
       context.supabase
         .from("exam_batch_subjects")
         .select("id,name")
         .in("id", subjIds),
+      chapIds.length
+        ? context.supabase
+            .from("exam_batch_chapters")
+            .select("id,name")
+            .in("id", chapIds)
+        : Promise.resolve({ data: [] as Array<{ id: string; name: string }> } as any),
       context.supabase
         .from("exam_batch_sessions")
         .select("id,title")
@@ -194,12 +203,16 @@ export const listExamBatchExamsForSession = createServerFn({ method: "POST" })
     ]);
     const subjMap = new Map<string, string>();
     for (const s of subjs ?? []) subjMap.set((s as any).id, (s as any).name);
+    const chapMap = new Map<string, string>();
+    for (const c of chaps ?? []) chapMap.set((c as any).id, (c as any).name);
     const sessionTitle = (sess as any)?.title ?? null;
     for (const r of rows) {
       r.subjectName = subjMap.get(r.subjectId) ?? null;
+      r.chapterName = r.chapterId ? (chapMap.get(r.chapterId) ?? null) : null;
       r.sessionTitle = sessionTitle;
     }
     return rows;
+
   });
 
 
