@@ -3640,7 +3640,15 @@ function ExamRowCard({
           <button
             type="button"
             className={cn(primaryBtnCls, "justify-center")}
-            onClick={() => onStart(exam.id)}
+            onMouseEnter={prewarmExamInterfaceChunk}
+            onFocus={prewarmExamInterfaceChunk}
+            onTouchStart={prewarmExamInterfaceChunk}
+            onClick={() => {
+              // Kick off chunk download before navigating so the route's
+              // Suspense fallback resolves nearly immediately.
+              void prewarmExamInterfaceChunk();
+              onStart(exam.id);
+            }}
           >
             <PlayCircle className="h-4 w-4" />
             {exam.availability === "live" ? "Continue" : "Start Exam"}
