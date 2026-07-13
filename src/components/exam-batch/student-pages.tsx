@@ -3687,6 +3687,7 @@ function MetaCell({
 // -------- Available exams --------
 export function StudentAvailable() {
   const navigate = useNavigate();
+  const router = useRouter();
   const gate = useRequireExamBatchApproval();
   const ctx = useExamBatchCurrentSessionId();
   const [q, setQ] = useState("");
@@ -3700,6 +3701,18 @@ export function StudentAvailable() {
   });
 
   const exams = examsQuery.data ?? [];
+
+  // As soon as an exam is available to launch, warm the (heavy)
+  // exam-interface chunk and preload the route in the background so
+  // clicking Continue transitions instantly — no blank flash while the
+  // JS chunk downloads.
+  useEffect(() => {
+    if (exams.some((e) => e.availability === "live" || e.availability === "open")) {
+      void prewarmExamInterfaceChunk();
+      void router.preloadRoute({ to: "/exam-batch-take" as never }).catch(() => {});
+    }
+  }, [exams, router]);
+
 
   // Backend already limits exams to the student's enrolled subjects, so we
   // can derive the enrolled-subject dropdown safely from the exam list.
