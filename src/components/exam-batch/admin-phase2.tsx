@@ -743,16 +743,6 @@ export function AdminExams() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <label className="sm:col-span-2 block">
               <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Title
-              </span>
-              <input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                className="mt-1 h-10 w-full rounded-xl border border-input bg-background/60 px-3 text-sm"
-              />
-            </label>
-            <label className="sm:col-span-2 block">
-              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Subtitle
               </span>
               <input
@@ -774,6 +764,8 @@ export function AdminExams() {
                     sessionId: e.target.value,
                     level: s?.level ?? form.level,
                     subjectId: "",
+                    chapterId: "",
+                    title: "",
                   });
                 }}
                 disabled={!!editing}
@@ -796,7 +788,7 @@ export function AdminExams() {
               <select
                 value={form.subjectId}
                 onChange={(e) =>
-                  setForm({ ...form, subjectId: e.target.value, chapterId: "" })
+                  setForm({ ...form, subjectId: e.target.value, chapterId: "", title: "" })
                 }
                 className="mt-1 h-10 w-full rounded-xl border border-input bg-background/60 px-3 text-sm"
               >
@@ -810,24 +802,44 @@ export function AdminExams() {
                 ))}
               </select>
             </label>
-            <label className="block">
+            <label className="sm:col-span-2 block">
               <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Chapter (optional)
+                Chapter
               </span>
               <select
                 value={form.chapterId}
-                onChange={(e) => setForm({ ...form, chapterId: e.target.value })}
+                onChange={(e) => {
+                  const chapters = (chaptersQ.data ?? []) as Array<{ id: string; name: string }>;
+                  const picked = chapters.find((c) => c.id === e.target.value);
+                  setForm({
+                    ...form,
+                    chapterId: e.target.value,
+                    title: picked?.name ?? "",
+                  });
+                }}
                 disabled={!form.subjectId}
                 className="mt-1 h-10 w-full rounded-xl border border-input bg-background/60 px-3 text-sm"
               >
-                <option value="">Any chapter (subject-wide)</option>
+                <option value="">
+                  {!form.subjectId
+                    ? "Select subject first…"
+                    : chaptersQ.isLoading
+                      ? "Loading chapters…"
+                      : "Select chapter…"}
+                </option>
                 {((chaptersQ.data ?? []) as any[]).map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}
               </select>
+              {form.title && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Exam title: <span className="font-semibold text-foreground">{form.title}</span>
+                </p>
+              )}
             </label>
+
             <label className="block">
               <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
                 Duration (minutes)
