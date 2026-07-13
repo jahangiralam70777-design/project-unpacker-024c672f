@@ -3707,7 +3707,7 @@ export function StudentAvailable() {
   // clicking Continue transitions instantly — no blank flash while the
   // JS chunk downloads.
   useEffect(() => {
-    if (exams.some((e) => e.availability === "live" || e.availability === "open")) {
+    if (exams.some((e) => e.availability === "live" || e.availability === "available")) {
       void prewarmExamInterfaceChunk();
       void router.preloadRoute({ to: "/exam-batch-take" as never }).catch(() => {});
     }
