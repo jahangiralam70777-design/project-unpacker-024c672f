@@ -600,6 +600,26 @@ export const submitExamBatchAttempt = createServerFn({ method: "POST" })
     const row = Array.isArray(rpc) ? rpc[0] : rpc;
     if (!row) throw errors.invalidState("Submit failed.");
 
+    // Publish the leaderboard immediately when this submission has actually
+    // ended the exam — either because the admin already force-closed it, or
+    // the exam window has now elapsed. This is a client-safe fallback that
+    // complements the AFTER-UPDATE trigger on exam_batch_attempts (SQL) and
+    // the every-minute sweep. `exam_batch_generate_leaderboard` is
+    // idempotent (advisory lock inside the RPC), so calling it here in
+    // parallel with the DB trigger is safe. Fire-and-forget; a leaderboard
+    // hiccup must not fail the submit itself — the sweep will pick it up.
+    const windowEnded = !!exam.force_closed_at || now >= end;
+    if (windowEnded) {
+      void context.supabase
+        .rpc("exam_batch_generate_leaderboard", { _exam_id: attempt.exam_id, _force: true })
+        .then(({ error: lbErr }) => {
+          if (lbErr) {
+            // eslint-disable-next-line no-console
+            console.warn("[submitExamBatchAttempt] leaderboard publish deferred:", lbErr.message);
+          }
+        });
+    }
+
     await audit(
       context.supabase,
       context.userId,
@@ -615,6 +635,7 @@ export const submitExamBatchAttempt = createServerFn({ method: "POST" })
       { examId: attempt.exam_id },
     );
     return { ok: true, alreadySubmitted: false, status: (row.status ?? "submitted") as string } as const;
+
   });
 
 // ============================================================================
