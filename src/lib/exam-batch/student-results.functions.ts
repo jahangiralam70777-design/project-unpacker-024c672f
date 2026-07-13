@@ -416,6 +416,8 @@ export const getExamBatchStudentHistory = createServerFn({ method: "POST" })
         .eq("status", "active")
         .order("window_start", { ascending: false });
       if (data.examId) examQuery = examQuery.eq("id", data.examId);
+      if (data.chapterId) examQuery = examQuery.eq("chapter_id", data.chapterId);
+
       const { data: examRows, error: examErr } = await examQuery;
       if (examErr) mapSupabaseError(examErr, "history:exams");
       const allExams = (examRows ?? []) as Array<{
