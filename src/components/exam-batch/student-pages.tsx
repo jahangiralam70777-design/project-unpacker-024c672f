@@ -62,8 +62,20 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { useNavigate } from "@tanstack/react-router";
+
+// Preload the (heavy) exam-interface chunk as soon as the student even
+// *hovers* the Continue/Start button. Combined with router.preloadRoute()
+// below, this eliminates the brief blank pane between click and the exam
+// mounting — the JS chunk is already in memory by the time we navigate.
+let examInterfaceChunkPromise: Promise<unknown> | null = null;
+function prewarmExamInterfaceChunk() {
+  if (!examInterfaceChunkPromise) {
+    examInterfaceChunkPromise = import("@/components/exam-batch/exam-interface");
+  }
+  return examInterfaceChunkPromise;
+}
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
