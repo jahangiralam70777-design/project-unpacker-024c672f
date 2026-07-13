@@ -3901,12 +3901,16 @@ export function StudentAvailable() {
                 <button
                   type="button"
                   className={cn(primaryBtnCls, "justify-center")}
-                  onClick={() =>
+                  onMouseEnter={prewarmExamInterfaceChunk}
+                  onFocus={prewarmExamInterfaceChunk}
+                  onTouchStart={prewarmExamInterfaceChunk}
+                  onClick={() => {
+                    void prewarmExamInterfaceChunk();
                     navigate({
                       to: "/exam-batch-take" as never,
                       search: { examId: e.id } as never,
-                    })
-                  }
+                    });
+                  }}
                 >
                   <PlayCircle className="h-4 w-4" />
                   {e.availability === "live" ? "Continue" : "Start Exam"}
