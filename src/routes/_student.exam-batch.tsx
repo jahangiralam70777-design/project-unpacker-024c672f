@@ -91,13 +91,15 @@ export const Route = createFileRoute("/_student/exam-batch")({
   beforeLoad: async ({ context, location }) => {
     const here = normalize(location.pathname);
 
-    // 1) Module visibility (admin can hide Exam Batch entirely).
-    const visibility = await context.queryClient.ensureQueryData({
-      queryKey: ["exam-batch", "student", "module-visibility"],
-      queryFn: () => getExamBatchModuleVisibility(),
+    // 1) Module visibility (admin can hide Exam Batch entirely). Uses the
+    //    same queryKey as `useExamBatchVisibility` so there is no duplicate
+    //    request — the cached value is reused everywhere.
+    const settings = await context.queryClient.ensureQueryData({
+      queryKey: ["exam-batch", "public-settings"],
+      queryFn: () => getExamBatchPublicSettings(),
       staleTime: 30_000,
     });
-    if (!visibility?.visible) {
+    if (settings?.moduleVisible === false) {
       if (here !== "/dashboard") throw redirect({ to: "/dashboard" });
       return;
     }
