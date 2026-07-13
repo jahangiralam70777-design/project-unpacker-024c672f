@@ -7,10 +7,8 @@ import {
   listMyExamBatchEnrollments,
   getExamBatchAccess,
 } from "@/lib/exam-batch/student-enrollment.functions";
-import {
-  getExamBatchAccessState,
-  getExamBatchModuleVisibility,
-} from "@/lib/exam-batch/student-attendance.functions";
+import { getExamBatchAccessState } from "@/lib/exam-batch/student-attendance.functions";
+import { getExamBatchPublicSettings } from "@/lib/exam-batch/public-settings.functions";
 import type { ExamBatchEnrollmentRow } from "@/lib/exam-batch/types";
 
 // Paths that only make sense BEFORE approval.
