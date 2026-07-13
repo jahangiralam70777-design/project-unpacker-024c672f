@@ -62,8 +62,20 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import type { LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
-import { Link } from "@tanstack/react-router";
+import { Link, useRouter } from "@tanstack/react-router";
 import { useNavigate } from "@tanstack/react-router";
+
+// Preload the (heavy) exam-interface chunk as soon as the student even
+// *hovers* the Continue/Start button. Combined with router.preloadRoute()
+// below, this eliminates the brief blank pane between click and the exam
+// mounting — the JS chunk is already in memory by the time we navigate.
+let examInterfaceChunkPromise: Promise<unknown> | null = null;
+function prewarmExamInterfaceChunk() {
+  if (!examInterfaceChunkPromise) {
+    examInterfaceChunkPromise = import("@/components/exam-batch/exam-interface");
+  }
+  return examInterfaceChunkPromise;
+}
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -3628,7 +3640,15 @@ function ExamRowCard({
           <button
             type="button"
             className={cn(primaryBtnCls, "justify-center")}
-            onClick={() => onStart(exam.id)}
+            onMouseEnter={prewarmExamInterfaceChunk}
+            onFocus={prewarmExamInterfaceChunk}
+            onTouchStart={prewarmExamInterfaceChunk}
+            onClick={() => {
+              // Kick off chunk download before navigating so the route's
+              // Suspense fallback resolves nearly immediately.
+              void prewarmExamInterfaceChunk();
+              onStart(exam.id);
+            }}
           >
             <PlayCircle className="h-4 w-4" />
             {exam.availability === "live" ? "Continue" : "Start Exam"}
@@ -3667,6 +3687,7 @@ function MetaCell({
 // -------- Available exams --------
 export function StudentAvailable() {
   const navigate = useNavigate();
+  const router = useRouter();
   const gate = useRequireExamBatchApproval();
   const ctx = useExamBatchCurrentSessionId();
   const [q, setQ] = useState("");
@@ -3680,6 +3701,18 @@ export function StudentAvailable() {
   });
 
   const exams = examsQuery.data ?? [];
+
+  // As soon as an exam is available to launch, warm the (heavy)
+  // exam-interface chunk and preload the route in the background so
+  // clicking Continue transitions instantly — no blank flash while the
+  // JS chunk downloads.
+  useEffect(() => {
+    if (exams.some((e) => e.availability === "live" || e.availability === "available")) {
+      void prewarmExamInterfaceChunk();
+      void router.preloadRoute({ to: "/exam-batch-take" as never }).catch(() => {});
+    }
+  }, [exams, router]);
+
 
   // Backend already limits exams to the student's enrolled subjects, so we
   // can derive the enrolled-subject dropdown safely from the exam list.
@@ -3868,12 +3901,16 @@ export function StudentAvailable() {
                 <button
                   type="button"
                   className={cn(primaryBtnCls, "justify-center")}
-                  onClick={() =>
+                  onMouseEnter={prewarmExamInterfaceChunk}
+                  onFocus={prewarmExamInterfaceChunk}
+                  onTouchStart={prewarmExamInterfaceChunk}
+                  onClick={() => {
+                    void prewarmExamInterfaceChunk();
                     navigate({
                       to: "/exam-batch-take" as never,
                       search: { examId: e.id } as never,
-                    })
-                  }
+                    });
+                  }}
                 >
                   <PlayCircle className="h-4 w-4" />
                   {e.availability === "live" ? "Continue" : "Start Exam"}
