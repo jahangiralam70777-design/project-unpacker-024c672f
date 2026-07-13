@@ -53,6 +53,8 @@ function formatTime(sec: number): string {
 export function ExamInterface() {
   const search = Route.useSearch();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
 
   const startFn = useServerFn(startOrResumeExamBatchAttempt);
   const stateFn = useServerFn(getExamBatchAttemptState);
