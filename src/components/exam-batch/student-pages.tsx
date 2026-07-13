@@ -787,6 +787,7 @@ export function StudentLeaderboard() {
           value={subjectId ?? ""}
           onValueChange={(v) => {
             setSubjectId(v || null);
+            setChapterId(null);
             setExamId(null);
           }}
         >
@@ -813,12 +814,41 @@ export function StudentLeaderboard() {
           </SelectContent>
         </Select>
         <Select
+          value={chapterId ?? ""}
+          onValueChange={(v) => {
+            setChapterId(v || null);
+            setExamId(null);
+          }}
+        >
+          <SelectTrigger
+            className="h-10 w-full rounded-xl border-border/60 bg-background/60 lg:w-56"
+            disabled={!subjectId || !chapterOptions.length}
+          >
+            <SelectValue
+              placeholder={
+                !subjectId
+                  ? "Select subject first"
+                  : chapterOptions.length === 0
+                    ? "No chapters"
+                    : "Select chapter"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {chapterOptions.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
           value={examId ?? ""}
           onValueChange={(v) => setExamId(v || null)}
         >
           <SelectTrigger
             className="h-10 w-full rounded-xl border-border/60 bg-background/60 lg:w-64"
-            disabled={!subjectId || !subjectFilteredExams.length}
+            disabled={!chapterId || !chapterFilteredExams.length}
           >
             <SelectValue
               placeholder={
@@ -826,14 +856,16 @@ export function StudentLeaderboard() {
                   ? "Select session first"
                   : !subjectId
                     ? "Select subject first"
-                    : subjectFilteredExams.length === 0
-                      ? "No exams yet"
-                      : "Select exam"
+                    : !chapterId
+                      ? "Select chapter first"
+                      : chapterFilteredExams.length === 0
+                        ? "No exams yet"
+                        : "Select exam"
               }
             />
           </SelectTrigger>
           <SelectContent>
-            {subjectFilteredExams.map((e) => (
+            {chapterFilteredExams.map((e) => (
               <SelectItem key={e.id} value={e.id}>
                 {e.title}
               </SelectItem>
@@ -841,6 +873,7 @@ export function StudentLeaderboard() {
           </SelectContent>
         </Select>
       </div>
+
 
 
       <SectionCard>
