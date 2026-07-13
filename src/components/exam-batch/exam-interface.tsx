@@ -20,6 +20,8 @@ import {
 
 import { useServerFn } from "@tanstack/react-start";
 import { useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+
 import { cn } from "@/lib/utils";
 import { primaryBtnCls, ghostBtnCls } from "./kit";
 import { Route } from "@/routes/_student.exam-batch-take";
