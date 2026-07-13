@@ -274,10 +274,15 @@ export function ExamInterface() {
       try {
         await submitFn({ data: { attemptId } });
         setPhase("submitted");
+        // Invalidate every exam-batch query so Available Exams, Completed
+        // Exams, Dashboard counts, Progress, and any leaderboards refetch
+        // immediately — no manual refresh required.
+        void queryClient.invalidateQueries({ queryKey: ["exam-batch"] });
       } catch (e: unknown) {
         // On failure, revert to exam view unless auto-submit which should still show submitted
         if (auto) {
           setPhase("submitted");
+          void queryClient.invalidateQueries({ queryKey: ["exam-batch"] });
         } else {
           setErrorMsg(e instanceof Error ? e.message : "Failed to submit.");
           setPhase("exam");
@@ -286,8 +291,9 @@ export function ExamInterface() {
         submitInFlight.current = false;
       }
     },
-    [attemptId, submitFn],
+    [attemptId, submitFn, queryClient],
   );
+
 
   // ---- Countdown timer ----
   useEffect(() => {
