@@ -814,6 +814,8 @@ export function StudentLeaderboard() {
 
 
       <SectionCard>
+        <div className="min-h-[480px]">
+
         {sessionsQuery.isLoading ||
         enrollmentsQuery.isLoading ||
         (sessionId && examsQuery.isLoading) ||
@@ -934,7 +936,9 @@ export function StudentLeaderboard() {
             </table>
           </div>
         )}
+        </div>
       </SectionCard>
+
 
       <div className="mt-4">
         <button

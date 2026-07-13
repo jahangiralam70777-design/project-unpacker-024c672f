@@ -241,6 +241,16 @@
      This is the single biggest source of the "page shakes on navigation"
      symptom on Windows/Linux Chromium. */
   html { scrollbar-gutter: stable; }
+  /* Radix (Select/Dialog/Popover) locks scroll by setting
+     `padding-right` on <body> to compensate for the vanished scrollbar.
+     Combined with our stable scrollbar-gutter this causes a visible
+     horizontal shift every time a Select opens/closes. Neutralize it. */
+  body[data-scroll-locked] {
+    padding-right: 0 !important;
+    margin-right: 0 !important;
+    overflow: hidden !important;
+  }
+
   /* Break only unbreakable strings (long URLs/tokens) at word boundaries.
      Never split ordinary English words in the middle. */
   body { overflow-wrap: break-word; word-break: normal; }
