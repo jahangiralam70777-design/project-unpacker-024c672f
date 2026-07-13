@@ -1509,6 +1509,7 @@ export function StudentHistory() {
   const navigate = useNavigate();
   const ctx = useExamBatchCurrentSessionId();
   const [subjectId, setSubjectId] = useState<string>("all");
+  const [chapterId, setChapterId] = useState<string>("all");
   const [examId, setExamId] = useState<string>("all");
   const [offset, setOffset] = useState(0);
   const limit = 25;
@@ -1532,15 +1533,40 @@ export function StudentHistory() {
     );
   }, [exams]);
 
+  // Chapters within the selected subject (from exam.chapter_id joined to
+  // exam_batch_chapters on the server — the Academic module is the source).
+  const chapterOptions = useMemo(() => {
+    if (subjectId === "all") return [];
+    const map = new Map<string, string>();
+    for (const e of exams) {
+      if (e.subjectId !== subjectId) continue;
+      if (!e.chapterId) continue;
+      if (!map.has(e.chapterId)) map.set(e.chapterId, e.chapterName ?? "Chapter");
+    }
+    return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [exams, subjectId]);
+
+  // Reset chapter when its subject scope changes.
+  useEffect(() => {
+    if (chapterId !== "all" && !chapterOptions.some((c) => c.id === chapterId)) {
+      setChapterId("all");
+    }
+  }, [chapterId, chapterOptions]);
+
   const examOptions = useMemo(() => {
-    const list =
-      subjectId === "all" ? exams : exams.filter((e) => e.subjectId === subjectId);
+    const list = exams.filter((e) => {
+      if (subjectId !== "all" && e.subjectId !== subjectId) return false;
+      if (chapterId !== "all" && e.chapterId !== chapterId) return false;
+      return true;
+    });
     return list
       .map((e) => ({ id: e.id, title: e.title }))
       .sort((a, b) => a.title.localeCompare(b.title));
-  }, [exams, subjectId]);
+  }, [exams, subjectId, chapterId]);
 
-  // Reset exam when its subject no longer matches.
+  // Reset exam when its subject/chapter no longer matches.
   useEffect(() => {
     if (examId !== "all" && !examOptions.some((e) => e.id === examId)) {
       setExamId("all");
@@ -1554,6 +1580,7 @@ export function StudentHistory() {
       "history",
       ctx.sessionId,
       subjectId,
+      chapterId,
       examId,
       offset,
       limit,
@@ -1563,13 +1590,16 @@ export function StudentHistory() {
         data: {
           sessionId: ctx.sessionId ?? undefined,
           subjectId: subjectId === "all" ? undefined : subjectId,
+          chapterId: chapterId === "all" ? undefined : chapterId,
           examId: examId === "all" ? undefined : examId,
           offset,
           limit,
         },
       }),
     enabled: !!ctx.sessionId,
+    placeholderData: keepPreviousData,
   });
+
   const items = historyQuery.data?.items ?? [];
   const total = historyQuery.data?.total ?? 0;
   const page = Math.floor(offset / limit) + 1;
