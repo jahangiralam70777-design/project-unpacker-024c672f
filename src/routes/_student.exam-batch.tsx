@@ -1,16 +1,17 @@
-import { useEffect } from "react";
-import { createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ExamBatchLayout } from "@/components/exam-batch/layout";
-import {
-  useExamBatchStudentNav,
-  useExamBatchAccess,
-} from "@/components/exam-batch/access-gate";
+import { useExamBatchStudentNav } from "@/components/exam-batch/access-gate";
 import { StudentExamBatchBanPage } from "@/components/exam-batch/student-ban-page";
-import { useExamBatchVisibility } from "@/hooks/use-exam-batch-visibility";
-import { useHydrated } from "@/hooks/use-hydrated";
-import { getExamBatchAccessState } from "@/lib/exam-batch/student-attendance.functions";
-import { Loader2 } from "lucide-react";
+import {
+  listMyExamBatchEnrollments,
+  getExamBatchAccess,
+} from "@/lib/exam-batch/student-enrollment.functions";
+import {
+  getExamBatchAccessState,
+  getExamBatchModuleVisibility,
+} from "@/lib/exam-batch/student-attendance.functions";
+import type { ExamBatchEnrollmentRow } from "@/lib/exam-batch/types";
 
 // Paths that only make sense BEFORE approval.
 const PRE_APPROVAL_PATHS = new Set<string>([
@@ -37,18 +38,23 @@ function normalize(p: string) {
   return n === "" ? "/" : n;
 }
 
+/**
+ * Pick the "current" enrollment the same way `useExamBatchAccess` does:
+ * prefer approved, then pending, then most-recent.
+ */
+function pickCurrentEnrollment(
+  rows: ExamBatchEnrollmentRow[],
+): ExamBatchEnrollmentRow | null {
+  if (!rows.length) return null;
+  return (
+    rows.find((e) => e.status === "approved") ??
+    rows.find((e) => e.status === "pending") ??
+    rows[0]
+  );
+}
+
 function StudentExamBatchLayout() {
   const nav = useExamBatchStudentNav();
-  const navigate = useNavigate();
-  const hydrated = useHydrated();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const { moduleVisible, isLoading: visibilityLoading } = useExamBatchVisibility();
-  const {
-    canAccessDashboard,
-    enrollment,
-    enrollmentStatus,
-    isLoading: accessLoading,
-  } = useExamBatchAccess();
 
   // Attendance / ban gate — realtime invalidations on
   // exam_batch_attendance_state (see use-exam-batch-realtime.ts) flip this
@@ -61,44 +67,6 @@ function StudentExamBatchLayout() {
   });
   const banDecision = banStateQuery.data;
 
-  // Compute the resolved target path from DB-driven access state.
-  // Returns `null` while state is still loading (we then render a spinner
-  // rather than showing whichever page is behind the URL, which caused the
-  // Session-selection flash for approved students).
-  const here = normalize(pathname);
-  const ready = hydrated && !visibilityLoading && !accessLoading;
-
-  let target: string | null = null;
-  if (ready) {
-    if (!moduleVisible) {
-      target = "/dashboard";
-    } else if (canAccessDashboard) {
-      // DB says the student is APPROVED with an assigned Student ID.
-      // They never see the Session selection screen — even on the
-      // /exam-batch, /exam-batch/sessions, /exam-batch/subjects,
-      // /exam-batch/enrollment or /exam-batch/pending URLs.
-      target = PRE_APPROVAL_PATHS.has(here) ? "/exam-batch/dashboard" : here;
-    } else if (enrollment && enrollmentStatus === "pending") {
-      const inPostArea = POST_APPROVAL_PREFIXES.some((p) => here.startsWith(p));
-      target =
-        inPostArea || here === "/exam-batch/subjects" || here === "/exam-batch/enrollment"
-          ? "/exam-batch/pending"
-          : here;
-    } else {
-      // Not enrolled / rejected / removed assignment → Session selection.
-      const inPostArea = POST_APPROVAL_PREFIXES.some((p) => here.startsWith(p));
-      target =
-        inPostArea || here === "/exam-batch/pending" ? "/exam-batch/sessions" : here;
-    }
-  }
-
-  const needsRedirect = target !== null && target !== here;
-
-  useEffect(() => {
-    if (!needsRedirect || !target) return;
-    navigate({ to: target as never, replace: true });
-  }, [needsRedirect, target, navigate]);
-
   // Banned students see ONLY the ban screen inside the Exam Batch module.
   // The rest of the website (Dashboard, Quiz, Mock, MCQ Practice, etc.)
   // remains fully accessible.
@@ -110,24 +78,88 @@ function StudentExamBatchLayout() {
     );
   }
 
-  // Block child render while access state resolves OR while a redirect is
-  // pending. This is the fix for the "Session selection appears every time"
-  // bug: the Home / Sessions component must never render on top of an
-  // approved student before the DB-backed decision is applied.
-  if (!ready || needsRedirect) {
-    return (
-      <ExamBatchLayout nav={nav}>
-        <div className="flex min-h-[40vh] items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
-      </ExamBatchLayout>
-    );
-  }
-
+  // Approval-driven redirects happen in `beforeLoad` (below) so the child
+  // route never mounts on the wrong page. No spinner, no flash, no
+  // useEffect race.
   return <ExamBatchLayout nav={nav} />;
 }
 
 export const Route = createFileRoute("/_student/exam-batch")({
+  // Runs BEFORE any child route mounts. Because `_student` is `ssr:false`,
+  // this runs client-side with access to the authenticated Supabase
+  // session. We throw `redirect()` here — TanStack Router applies the
+  // redirect before rendering, so the Session page never appears for an
+  // approved student.
+  beforeLoad: async ({ context, location }) => {
+    const here = normalize(location.pathname);
+
+    // 1) Module visibility (admin can hide Exam Batch entirely).
+    const visibility = await context.queryClient.ensureQueryData({
+      queryKey: ["exam-batch", "student", "module-visibility"],
+      queryFn: () => getExamBatchModuleVisibility(),
+      staleTime: 30_000,
+    });
+    if (!visibility?.visible) {
+      if (here !== "/dashboard") throw redirect({ to: "/dashboard" });
+      return;
+    }
+
+    // 2) Load the student's enrollments (cached; shared with
+    //    `useExamBatchAccess` via the same queryKey so no duplicate fetch).
+    const enrollments = await context.queryClient.ensureQueryData({
+      queryKey: ["exam-batch", "student", "my-enrollments"],
+      queryFn: () => listMyExamBatchEnrollments({ data: {} }),
+      staleTime: 15_000,
+    });
+
+    const currentEnrollment = pickCurrentEnrollment(enrollments ?? []);
+    const sessionId = currentEnrollment?.session_id ?? null;
+
+    // 3) Authoritative approval decision (status=approved + student_id set).
+    //    Only queried when we have a candidate session — otherwise the user
+    //    has no enrollment at all and must see the Session picker.
+    let canAccessDashboard = false;
+    let enrollmentStatus: string | null = currentEnrollment?.status ?? null;
+    if (sessionId) {
+      const access = await context.queryClient.ensureQueryData({
+        queryKey: ["exam-batch", "student", "access", sessionId],
+        queryFn: () => getExamBatchAccess({ data: { sessionId } }),
+        staleTime: 15_000,
+      });
+      canAccessDashboard = access?.canAccessDashboard ?? false;
+      enrollmentStatus = access?.status ?? enrollmentStatus;
+    }
+
+    const inPostArea = POST_APPROVAL_PREFIXES.some((p) => here.startsWith(p));
+
+    if (canAccessDashboard) {
+      // Approved + Student ID assigned → Dashboard is the only entry point.
+      // The Session / Subjects / Enrollment / Pending screens are hidden
+      // forever for this student unless approval is revoked server-side.
+      if (PRE_APPROVAL_PATHS.has(here)) {
+        throw redirect({ to: "/exam-batch/dashboard" });
+      }
+      return;
+    }
+
+    if (currentEnrollment && enrollmentStatus === "pending") {
+      // Enrolled but awaiting admin approval.
+      if (
+        inPostArea ||
+        here === "/exam-batch/subjects" ||
+        here === "/exam-batch/enrollment"
+      ) {
+        throw redirect({ to: "/exam-batch/pending" });
+      }
+      return;
+    }
+
+    // Not enrolled / rejected / revoked → Session selection is the only
+    // valid entry point.
+    if (inPostArea || here === "/exam-batch/pending") {
+      throw redirect({ to: "/exam-batch/sessions" });
+    }
+  },
   component: StudentExamBatchLayout,
   head: () => ({
     meta: [
@@ -138,4 +170,3 @@ export const Route = createFileRoute("/_student/exam-batch")({
     ],
   }),
 });
-
