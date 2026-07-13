@@ -814,6 +814,8 @@ export function StudentLeaderboard() {
 
 
       <SectionCard>
+        <div className="min-h-[480px]">
+
         {sessionsQuery.isLoading ||
         enrollmentsQuery.isLoading ||
         (sessionId && examsQuery.isLoading) ||
