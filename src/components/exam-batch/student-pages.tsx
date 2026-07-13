@@ -572,6 +572,7 @@ export function StudentLeaderboard() {
   // or leaderboards are prefetched.
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [chapterId, setChapterId] = useState<string | null>(null);
   const [examId, setExamId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
@@ -614,6 +615,7 @@ export function StudentLeaderboard() {
     if (sessionId && !approvedSessionOptions.some((s) => s.id === sessionId)) {
       setSessionId(null);
       setSubjectId(null);
+      setChapterId(null);
       setExamId(null);
     }
   }, [sessionId, approvedSessionOptions]);
@@ -645,21 +647,49 @@ export function StudentLeaderboard() {
   useEffect(() => {
     if (subjectId && !subjectOptions.some((s) => s.id === subjectId)) {
       setSubjectId(null);
+      setChapterId(null);
       setExamId(null);
     }
   }, [subjectId, subjectOptions]);
 
-  const subjectFilteredExams = useMemo(
-    () => (subjectId ? exams.filter((e) => e.subjectId === subjectId) : []),
-    [exams, subjectId],
-  );
+  // Chapters for the selected subject — sourced from the Academic module
+  // (exam.chapter_id/chapterName joined from exam_batch_chapters on the server).
+  const chapterOptions = useMemo(() => {
+    if (!subjectId) return [];
+    const map = new Map<string, string>();
+    for (const e of exams) {
+      if (e.subjectId !== subjectId) continue;
+      if (!e.chapterId) continue;
+      if (!map.has(e.chapterId)) map.set(e.chapterId, e.chapterName ?? "Chapter");
+    }
+    return Array.from(map, ([id, name]) => ({ id, name })).sort((a, b) =>
+      a.name.localeCompare(b.name),
+    );
+  }, [exams, subjectId]);
 
-  // Reset exam if it no longer belongs to the chosen subject.
   useEffect(() => {
-    if (examId && !subjectFilteredExams.some((e) => e.id === examId)) {
+    if (chapterId && !chapterOptions.some((c) => c.id === chapterId)) {
+      setChapterId(null);
       setExamId(null);
     }
-  }, [examId, subjectFilteredExams]);
+  }, [chapterId, chapterOptions]);
+
+  const chapterFilteredExams = useMemo(
+    () =>
+      subjectId && chapterId
+        ? exams.filter((e) => e.subjectId === subjectId && e.chapterId === chapterId)
+        : [],
+    [exams, subjectId, chapterId],
+  );
+
+  // Reset exam if it no longer belongs to the chosen subject/chapter.
+  useEffect(() => {
+    if (examId && !chapterFilteredExams.some((e) => e.id === examId)) {
+      setExamId(null);
+    }
+  }, [examId, chapterFilteredExams]);
+
+
 
   const boardQuery = useQuery({
     queryKey: ["exam-batch", "student", "leaderboard", examId],
