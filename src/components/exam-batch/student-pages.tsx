@@ -1633,11 +1633,13 @@ export function StudentHistory() {
       />
 
       {/* Filters */}
-      <div className="glass shadow-card-soft mb-4 grid grid-cols-1 gap-2 rounded-2xl p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center">
+      <div className="glass shadow-card-soft mb-4 grid grid-cols-1 gap-2 rounded-2xl p-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center">
         <Select
           value={subjectId}
           onValueChange={(v) => {
             setSubjectId(v);
+            setChapterId("all");
+            setExamId("all");
             setOffset(0);
           }}
         >
@@ -1652,6 +1654,37 @@ export function StudentHistory() {
             {subjectOptions.map((s) => (
               <SelectItem key={s.id} value={s.id}>
                 {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select
+          value={chapterId}
+          onValueChange={(v) => {
+            setChapterId(v);
+            setExamId("all");
+            setOffset(0);
+          }}
+        >
+          <SelectTrigger
+            className="h-10 w-full min-w-0 rounded-xl border-border/60 bg-background/60"
+            disabled={subjectId === "all" || !chapterOptions.length}
+          >
+            <SelectValue
+              placeholder={
+                subjectId === "all"
+                  ? "Select subject first"
+                  : chapterOptions.length === 0
+                    ? "No chapters"
+                    : "All chapters"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All chapters</SelectItem>
+            {chapterOptions.map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.name}
               </SelectItem>
             ))}
           </SelectContent>
@@ -1682,6 +1715,7 @@ export function StudentHistory() {
           {historyQuery.isFetching ? "Updating…" : `${total} attempts`}
         </div>
       </div>
+
 
       {historyQuery.isLoading || ctx.isLoading ? (
         <HistorySkeleton />
